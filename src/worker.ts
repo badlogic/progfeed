@@ -12,18 +12,22 @@ async function runWorker() {
 
 		const feeds = isPostRelevant(post);
 		if (feeds.length > 0) {
-			parentPort?.postMessage({
+			const message = {
 				type: "post",
 				feeds,
 				post,
-			});
+			};
+			if (process.send) process.send(message);
+			parentPort?.postMessage(message);
 		}
 
 		if (performance.now() - lastStatsSent > 1000) {
-			parentPort?.postMessage({
+			const message = {
 				type: "stats",
 				processedPosts,
-			});
+			};
+			if (process.send) process.send(message);
+			parentPort?.postMessage(message);
 			lastStatsSent = performance.now();
 		}
 	};
@@ -31,10 +35,12 @@ async function runWorker() {
 	try {
 		await firehose.run(onPost, false);
 	} catch (error) {
-		parentPort?.postMessage({
+		const message = {
 			type: "error",
 			error: (error as any).message,
-		});
+		};
+		if (process.send) process.send(message);
+		parentPort?.postMessage(message);
 		setTimeout(() => process.exit(1), 1000);
 	}
 }

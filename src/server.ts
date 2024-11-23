@@ -3,6 +3,7 @@ import { feeds, publishAllFeeds, serviceDid } from "./feeds";
 import { FeedStorage } from "./storage";
 import path from "path";
 import { Worker } from "worker_threads";
+import { fork } from "child_process";
 
 const POSTS_PER_PAGE = 5;
 let workerStats = {
@@ -30,6 +31,7 @@ function setupRoutes(app: Express) {
 	});
 
 	app.get("/.well-known/did.json", (req, res) => {
+		console.log("did.json requested");
 		res.json({
 			"@context": ["https://www.w3.org/ns/did/v1"],
 			id: serviceDid,
@@ -44,6 +46,7 @@ function setupRoutes(app: Express) {
 	});
 
 	app.get("/xrpc/app.bsky.feed.describeFeedGenerator", (req, res) => {
+		console.log("Feed description requested");
 		res.json({
 			did: serviceDid,
 			feeds: feeds.map(feed => {
@@ -61,6 +64,7 @@ function setupRoutes(app: Express) {
 		try {
 			const feedUri = req.query.feed as string;
 			if (!feedUri) {
+				console.log("Missing feed parameter");
 				res.status(400).json({ error: "Missing feed parameter" });
 				return;
 			}
@@ -91,9 +95,10 @@ function setupRoutes(app: Express) {
 }
 
 function startFirehoseWorker() {
-	const worker = new Worker(path.join(__dirname, "worker.js"));
+	// const worker = new Worker(path.join(__dirname, "worker.js"));
+	const worker = fork(path.join(__dirname, "worker.js"));
 
-	worker.on("message", message => {
+	worker.on("message", (message: any) => {
 		if (message.type === "stats") {
 			workerStats.numPosts = message.processedPosts;
 		} else if (message.type === "error") {

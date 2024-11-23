@@ -4,8 +4,8 @@ pushd $dir/.. > /dev/null
 
 if [ -z "$DEV" ]; then
 echo "Starting server in prod mode"
-	node --enable-source-maps build/server.js
+	node --enable-source-maps build/feed-server.js
 else
     echo "Starting server in dev mode"
-	node --watch --enable-source-maps --inspect-brk=0.0.0.0:9230 build/server.js
+	node --watch --enable-source-maps  build/feed-server.js
 fi
