@@ -1,0 +1,29 @@
+{
+  "name": "progfeed",
+  "version": "1.0.0",
+  "description": "BlueSky feed generator for programming related skeets",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -r \"npm run build -- --watch\" \"node --watch --enable-source-maps --inspect-brk=0.0.0.0:9230 build/index.js\"",
+    "build": "node ./esbuild.server.mjs",
+    "clean": "rm -rf build"
+  },
+  "author": "contact@mariozechner.at",
+  "license": "MIT",
+  "dependencies": {
+    "@atproto/api": "^0.13.18",
+    "@atproto/identity": "^0.4.3",
+    "@atproto/lexicon": "^0.4.3",
+    "@atproto/repo": "^0.5.5",
+    "@atproto/syntax": "^0.3.1",
+    "@atproto/xrpc-server": "^0.7.3",
+    "multiformats": "^13.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "concurrently": "^8.1.0",
+    "esbuild": "^0.17.19",
+    "typescript": "^5.0.0"
+  }
+}
