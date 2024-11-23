@@ -1,25 +1,21 @@
-import express from "express";
-import { FirehosePost, FirehoseSubscription } from "./firehose";
-import { feeds, processPost, publishAllFeeds, serviceDid, storage } from "./feeds";
+import express, { Express } from "express";
+import { feeds, publishAllFeeds, serviceDid } from "./feeds";
+import { FeedStorage } from "./storage";
+import path from "path";
+import { Worker } from "worker_threads";
 
 const POSTS_PER_PAGE = 5;
-const startTime = performance.now();
-let processedPosts = 0;
-const posts: FirehosePost[] = [];
+let workerStats = {
+	start: performance.now(),
+	numPosts: 0,
+};
 
-async function main() {
-	process.on("SIGINT", () => {
-		console.log("Shutting down...");
-		process.exit();
-	});
+const storage = new FeedStorage();
+storage.initialize(feeds.map(feed => feed.rkey));
 
-	const app = express();
-	const port = process.env.PORT ?? 3333;
-
-	await publishAllFeeds();
-
+function setupRoutes(app: Express) {
 	app.get("/api/stats", (req, res) => {
-		const postsPerSecond = (processedPosts / (performance.now() - startTime)) * 1000;
+		const postsPerSecond = (workerStats.numPosts / (performance.now() - workerStats.start)) * 1000;
 		const memUsage = process.memoryUsage();
 		memUsage.rss /= 1024 * 1024;
 		memUsage.heapUsed /= 1024 * 1024;
@@ -27,6 +23,7 @@ async function main() {
 		memUsage.arrayBuffers /= 1024 * 1024;
 
 		res.json({
+			numPosts: workerStats.numPosts,
 			postsPerSecond,
 			memUsage,
 		});
@@ -91,17 +88,52 @@ async function main() {
 			res.status(500).json({ error: "Internal server error" });
 		}
 	});
+}
 
+function startFirehoseWorker() {
+	const worker = new Worker(path.join(__dirname, "worker.js"));
+
+	worker.on("message", message => {
+		if (message.type === "stats") {
+			workerStats.numPosts = message.processedPosts;
+		} else if (message.type === "error") {
+			console.error(`Worker error:`, message.error);
+			process.exit(-1);
+		} else if (message.type === "post") {
+			for (const feed of message.feeds) {
+				storage.addPost(feed, message.post);
+			}
+		}
+	});
+
+	worker.on("error", error => {
+		console.error(`Worker failed:`, error);
+		process.exit(-1);
+	});
+
+	worker.on("exit", code => {
+		if (code !== 0) {
+			console.error(`Worker stopped with exit code ${code}`);
+			process.exit(-1);
+		}
+	});
+}
+
+async function main() {
+	process.on("SIGINT", () => {
+		console.log("Shutting down...");
+		process.exit(-1);
+	});
+
+	await publishAllFeeds();
+
+	const app = express();
+	const port = process.env.PORT ?? 3333;
+	setupRoutes(app);
 	app.listen(port, async () => {
 		console.log(`Feed generator server running on port ${port}`);
-
-		console.log("Starting firehose subscription...");
-		const onPost = (post: FirehosePost) => {
-			processedPosts++;
-			processPost(post);
-		};
-		const firehose = new FirehoseSubscription("wss://bsky.network");
-		await firehose.run(onPost, false);
+		console.log("Starting firehose worker");
+		startFirehoseWorker();
 	});
 }
 

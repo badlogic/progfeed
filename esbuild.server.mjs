@@ -6,6 +6,7 @@ const config = {
 	entryPoints: {
 		server: "src/server.ts",
 		cleanup: "src/cleanup.ts",
+		worker: "src/worker.ts",
 	},
 	bundle: true,
 	sourcemap: true,

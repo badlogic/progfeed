@@ -10,7 +10,7 @@ export type Feed = {
 	name: string;
 	description: string;
 	uri?: string;
-	processPost: (feed: Feed, post: FirehosePost) => void;
+	isPostRelevant: (post: FirehosePost) => boolean;
 };
 export const feeds: Feed[] = [];
 
@@ -66,22 +66,19 @@ export async function testFeed(feed: Feed) {
 	}
 }
 
-export function processPost(post: FirehosePost) {
+export function isPostRelevant(post: FirehosePost): string[] {
+	const relevantFeeds = [];
 	for (const feed of feeds) {
-		feed.processPost(feed, post);
+		if (feed.isPostRelevant(post)) relevantFeeds.push(feed.rkey);
 	}
+	return relevantFeeds;
 }
 
 feeds.push({
 	rkey: "githubrepos",
 	name: "GitHub Repos",
 	description: "Skeets with URLs to GitHub repos, sorted chronologically.",
-	processPost: (feed, post) => {
-		if (post.text.includes("github.com")) {
-			storage.addPost(feed.rkey, post);
-		}
+	isPostRelevant: post => {
+		return post.text.includes("github.com");
 	},
 });
-
-export const storage = new FeedStorage();
-storage.initialize(feeds.map(feed => feed.rkey));
