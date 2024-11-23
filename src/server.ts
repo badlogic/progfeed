@@ -95,8 +95,12 @@ function setupRoutes(app: Express) {
 }
 
 function startFirehoseWorker() {
-	// const worker = new Worker(path.join(__dirname, "worker.js"));
-	const worker = fork(path.join(__dirname, "worker.js"));
+	const isDebugMode = process.execArgv.some(arg => arg.startsWith("--inspect-brk=") || arg.startsWith("--inspect="));
+	// Use child process in prod, better perf
+	const worker = isDebugMode
+		? new Worker(path.join(__dirname, "worker.js"))
+		: fork(path.join(__dirname, "worker.js"));
+	console.log("Worker mode: " + (isDebugMode ? "thread" : "child process"));
 
 	worker.on("message", (message: any) => {
 		if (message.type === "stats") {

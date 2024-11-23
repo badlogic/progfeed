@@ -7,5 +7,5 @@ echo "Starting server in prod mode"
 	node --enable-source-maps build/feed-server.js
 else
     echo "Starting server in dev mode"
-	node --watch --enable-source-maps  build/feed-server.js
+	node --watch --enable-source-maps --inspect-brk=0.0.0.0:9230 build/feed-server.js
 fi
