@@ -316,6 +316,7 @@ const renderResults = (results: BlueskyScannerResults) => {
         <div class="flex gap-2 items-center" style="margin-top: 1em; border: 1px solid #ccc; border-radius: 8px; padding: 1em;">
             <span class="text-bold">Sort by</span>
             <select id="sort-feature">
+				<option value="followedAt">Follow Date</option>
                 <option value="created">Profile created Date</option>
                 <option value="posts">Posts</option>
                 <option value="follows">Follows</option>
@@ -400,6 +401,9 @@ const renderResults = (results: BlueskyScannerResults) => {
 		filteredResults.sort((a, b) => {
 			let comparison = 0
 			switch (sortFeature) {
+				case "followedAt":
+					// Nothing to do here.
+					break
 				case "created":
 					comparison = new Date(a.created || 0).getTime() - new Date(b.created || 0).getTime()
 					break
@@ -415,6 +419,9 @@ const renderResults = (results: BlueskyScannerResults) => {
 			}
 			return sortDirection === "desc" ? -comparison : comparison
 		})
+		if (sortFeature == "followedAt" && sortDirection !== "desc") {
+			filteredResults.reverse()
+		}
 
 		// Clear existing accounts and load first page
 		const accountsList = document.getElementById("accountsList")
@@ -489,7 +496,7 @@ document.addEventListener("DOMContentLoaded", () => {
 		progressDiv.textContent = "Starting scan..."
 		progressDiv.classList.remove("hidden")
 		infoDiv.classList.remove("hidden")
-		infoDiv.textContent = "Scanning can take a long time. Do not switch away from the tab on mobile"
+		infoDiv.textContent = "Scanning can take a long time. Do not switch away from the tab on mobile."
 		resultsDiv.innerHTML = ""
 
 		scanButton.disabled = true
@@ -502,5 +509,8 @@ document.addEventListener("DOMContentLoaded", () => {
 		}
 	})
 
-	if (location.hostname.includes("localhost")) scanButton.click()
+	if (location.hostname.includes("localhost")) {
+		handleInput.value = "E-hom.bsky.social"
+		scanButton.click()
+	}
 })
