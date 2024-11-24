@@ -32,9 +32,9 @@ async function update() {
             ${map(
 				stats.feedStats,
 				feed =>
-					/*html*/ `<span>${feed.feed}: ${feed.numPosts} posts, ${(feed.fileSize / 1024).toFixed(
-						0,
-					)} KB</span>`,
+					/*html*/ `<span><a href="https://bsky.app/profile/badlogic.bsky.social/feed/${feed.feed}">${
+						feed.feed
+					}</a>: ${feed.numPosts} posts, ${(feed.fileSize / 1024).toFixed(0)} KB</span>`,
 			)}
             </div>
         </div>`,

@@ -150,7 +150,7 @@ async function main() {
 		process.exit(-1)
 	})
 
-	// await publishAllFeeds()
+	await publishAllFeeds()
 
 	const app = express()
 	const port = process.env.PORT ?? 3333
