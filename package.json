@@ -18,12 +18,14 @@
     "@atproto/repo": "^0.5.5",
     "@atproto/syntax": "^0.3.1",
     "@atproto/xrpc-server": "^0.7.3",
+    "@skyware/jetstream": "^0.2.0",
     "@types/express": "^5.0.0",
     "express": "^4.21.1",
     "multiformats": "^13.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.13",
     "concurrently": "^8.1.0",
     "esbuild": "^0.17.19",
     "typescript": "^5.0.0"

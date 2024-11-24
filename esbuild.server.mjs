@@ -1,12 +1,13 @@
-import esbuild from "esbuild";
+import esbuild from "esbuild"
 
-let watch = process.argv.length >= 3 && process.argv[2] == "--watch";
+let watch = process.argv.length >= 3 && process.argv[2] == "--watch"
 
 const config = {
 	entryPoints: {
 		"feed-server": "src/server.ts",
 		cleanup: "src/cleanup.ts",
 		worker: "src/worker.ts",
+		test: "src/test.ts",
 	},
 	bundle: true,
 	sourcemap: true,
@@ -37,12 +38,12 @@ const config = {
             const __dirname = dirname(__filename);
         `,
 	},
-};
+}
 
 if (!watch) {
-	console.log("Building server");
-	await esbuild.build(config);
+	console.log("Building server")
+	await esbuild.build(config)
 } else {
-	const buildContext = await esbuild.context(config);
-	buildContext.watch();
+	const buildContext = await esbuild.context(config)
+	buildContext.watch()
 }

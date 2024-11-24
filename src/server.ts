@@ -10,6 +10,7 @@ const POSTS_PER_PAGE = 5
 let workerStats = {
 	start: performance.now(),
 	numPosts: 0,
+	numEvents: 0,
 }
 
 const storage = new FeedStorage()
@@ -18,6 +19,7 @@ storage.initialize(feeds.map(feed => feed.rkey))
 function setupRoutes(app: Express) {
 	app.get("/api/stats", (req, res) => {
 		const postsPerSecond = (workerStats.numPosts / (performance.now() - workerStats.start)) * 1000
+		const eventsPerSecond = (workerStats.numEvents / (performance.now() - workerStats.start)) * 1000
 		const memStats = process.memoryUsage()
 		memStats.rss /= 1024 * 1024
 		memStats.heapUsed /= 1024 * 1024
@@ -37,7 +39,9 @@ function setupRoutes(app: Express) {
 
 		res.json({
 			numPosts: workerStats.numPosts,
+			numEvents: workerStats.numEvents,
 			postsPerSecond,
+			eventsPerSecond,
 			feedStats,
 			memStats,
 		})
@@ -116,6 +120,7 @@ function startFirehoseWorker() {
 	worker.on("message", (message: any) => {
 		if (message.type === "stats") {
 			workerStats.numPosts = message.processedPosts
+			workerStats.numEvents = message.processedEvents
 		} else if (message.type === "error") {
 			console.error(`Worker error:`, message.error)
 			process.exit(-1)
@@ -145,7 +150,7 @@ async function main() {
 		process.exit(-1)
 	})
 
-	await publishAllFeeds()
+	// await publishAllFeeds()
 
 	const app = express()
 	const port = process.env.PORT ?? 3333

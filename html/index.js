@@ -25,6 +25,8 @@ async function update() {
 		/*html*/ `<div class="flex flex-col gap-2 items-center">
             <span>${stats.numPosts} posts processed</span>
             <span>${stats.postsPerSecond.toFixed(0)} posts/second </span>
+            <span>${stats.numEvents} events processed</span>
+            <span>${stats.eventsPerSecond.toFixed(0)} events/second </span>
             <div class="flex flex-col" style="padding: 1em">
             <span><b>Feeds</b></span>
             ${map(
