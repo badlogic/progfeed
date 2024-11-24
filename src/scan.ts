@@ -149,43 +149,107 @@ const getTimeAgo = (dateString: string): string => {
 const renderResults = (results: BlueskyScannerResults) => {
 	const resultsDiv = document.getElementById("results") as HTMLDivElement
 	const { accounts, numNoDescription, numNoPosts, totalFollowers } = results
+	const ITEMS_PER_PAGE = 20
+	let currentPage = 0
+	let filteredResults: Account[] = []
 
-	const renderSelection = (accounts: Account[]) => {
-		return /*html*/ `
-            <div class="flex flex-col gap-4" style="margin: 2em 0em">
-                ${accounts
-					.map(
-						(account) => `
-                    <div class="flex flex-col gap-2" style="border: 1px solid #ccc; border-radius: 0.5em; padding: 1em;">
-                        <div class="flex gap-2 items-center">
-                            ${
-								account.avatar
-									? `<img loading="lazy" style="width: 64px; height: 64px; border-radius: 100%;" src="${account.avatar}">`
-									: `<span class="sus">No Pic</span>`
-							}
-                            <a href="https://${account.handle}" target="_blank">${account.handle}</a>
-                        </div>
-                        <div class="text-sm">Created ${getTimeAgo(account.created ?? new Date().toISOString())}</div>
-                        ${
-							account.description
-								? `<div style="word-break: break-word; overflow-wrap: break-word;">${account.description}</div>`
-								: `<div style="color: red;">No bio</div>`
-						}
-                        <div class="flex items-center gap-2 text-sm">
-                            <span class="${account.followersCount == 0 ? "sus" : ""}">${
-							account.followersCount
-						} Followers</span>
-                            <span class="${account.followsCount == 0 ? "sus" : ""}">${
-							account.followsCount
-						} Follows</span>
-                            <span class="${account.postsCount == 0 ? "sus" : ""}">${account.postsCount} Posts</span>
-                        </div>
-                    </div>
-                `,
-					)
-					.join("")}
+	const renderAccount = (account: Account) => /*html*/ `
+        <div class="flex flex-col gap-2 mb-2" style="border: 1px solid #ccc; border-radius: 0.5em; padding: 1em;">
+            <div class="flex gap-2 items-center">
+                ${
+					account.avatar
+						? `<img loading="lazy" style="width: 64px; height: 64px; border-radius: 100%;" src="${account.avatar}">`
+						: `<span class="sus">No Pic</span>`
+				}
+                <a href="https://${account.handle}" target="_blank">${account.handle}</a>
             </div>
-        `
+            <div class="text-sm">Created ${getTimeAgo(account.created ?? new Date().toISOString())}</div>
+            ${
+				account.description
+					? `<div style="word-break: break-word; overflow-wrap: break-word;">${account.description}</div>`
+					: `<div style="color: red;">No bio</div>`
+			}
+            <div class="flex items-center gap-2 text-sm">
+                <span class="${account.followersCount == 0 ? "sus" : ""}">${account.followersCount} Followers</span>
+                <span class="${account.followsCount == 0 ? "sus" : ""}">${account.followsCount} Follows</span>
+                <span class="${account.postsCount == 0 ? "sus" : ""}">${account.postsCount} Posts</span>
+            </div>
+        </div>
+    `
+
+	const loadMoreAccounts = () => {
+		const start = currentPage * ITEMS_PER_PAGE
+		const end = start + ITEMS_PER_PAGE
+		const newAccounts = filteredResults.slice(start, end)
+
+		// Clean up existing observer if there is one
+		cleanupLoadMoreObserver()
+
+		const accountsList = document.getElementById("accountsList")
+		if (accountsList) {
+			newAccounts.forEach((account) => {
+				const div = document.createElement("div")
+				div.innerHTML = renderAccount(account)
+				accountsList.appendChild(div.childNodes[1])
+			})
+		}
+
+		// Update or remove the Load More button
+		const loadMoreWrapper = document.getElementById("loadMoreWrapper")
+		if (loadMoreWrapper) {
+			if (filteredResults.length > end) {
+				loadMoreWrapper.innerHTML = `
+				<div id="loadMore" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+					Loading more... (${filteredResults.length - end} remaining)
+				</div>`
+				setupLoadMoreObserver()
+			} else {
+				loadMoreWrapper.innerHTML = ""
+			}
+		}
+	}
+
+	let currentObserver: IntersectionObserver | null = null
+
+	const cleanupLoadMoreObserver = () => {
+		if (currentObserver) {
+			currentObserver.disconnect()
+			currentObserver = null
+		}
+	}
+
+	const setupLoadMoreObserver = () => {
+		const loadMore = document.getElementById("loadMore")
+		if (loadMore) {
+			// Clean up any existing observer first
+			cleanupLoadMoreObserver()
+
+			currentObserver = new IntersectionObserver(
+				(entries) => {
+					const entry = entries[0]
+					if (entry.isIntersecting) {
+						currentPage++
+						loadMoreAccounts()
+					}
+				},
+				{
+					rootMargin: "200px",
+				},
+			)
+
+			currentObserver.observe(loadMore)
+		}
+	}
+
+	const parseSearchTokens = (searchText: string) => {
+		const tokens = searchText
+			.trim()
+			.split(/\s+/)
+			.filter((t) => t)
+		const required = tokens.filter((t) => t.startsWith("+")).map((t) => t.slice(1).toLowerCase())
+		const excluded = tokens.filter((t) => t.startsWith("-")).map((t) => t.slice(1).toLowerCase())
+		const optional = tokens.filter((t) => !t.startsWith("+") && !t.startsWith("-")).map((t) => t.toLowerCase())
+		return { required, excluded, optional }
 	}
 
 	const BLUESKY_LAUNCH_DATE = "2023-02-17" // Bluesky's public launch date
@@ -194,7 +258,17 @@ const renderResults = (results: BlueskyScannerResults) => {
         <h2>${totalFollowers} Followers analyzed</h2>
 
         <div class="filters flex flex-col gap-2" style="border: 1px solid #ccc; border-radius: 8px; padding: 1em;">
-			<div style="font-weight: 700; font-size: 1.25em;">Filters</div>
+            <div style="font-weight: 700; font-size: 1.25em;">Filters</div>
+
+            <!-- Search box -->
+            <div class="flex flex-col gap-2">
+                <span class="text-bold">Search handles & bios</span>
+                <input type="text" id="search-text" placeholder="e.g. developer +engineer -recruiter" class="filter-input">
+                <div class="text-sm text-gray-600">
+                    +word: must contain word, -word: must not contain word
+                </div>
+            </div>
+
             <!-- Bio filter row -->
             <div class="flex gap-4 items-center">
                 <label class="flex gap-2 items-center">
@@ -207,74 +281,66 @@ const renderResults = (results: BlueskyScannerResults) => {
                 </label>
             </div>
 
-            <!-- Avatar filter row -->
-            <!--<div class="flex gap-4 items-center">
-                <label class="flex gap-2 items-center">
-                    <input type="checkbox" id="with-avatar" checked>
-                    <span>With Avatar</span>
-                </label>
-                <label class="flex gap-2 items-center">
-                    <input type="checkbox" id="without-avatar" checked>
-                    <span>Without Avatar</span>
-                </label>
-            </div>-->
-
             <!-- Posts range row -->
-			<span class="text-bold">Posts</span>
             <div class="flex gap-2 items-center">
-                <input type="number" id="min-posts" min="0" value="0" placeholder="Min posts">
+				<span class="text-bold" style="min-width: 75px;">Posts</span>
+                <input class="filter-input" type="number" id="min-posts" min="0" value="0" placeholder="Min posts">
                 <span>to</span>
-                <input type="number" id="max-posts" min="0" value="${10000000}" placeholder="Max posts">
+                <input class="filter-input" type="number" id="max-posts" min="0" value="${10000000}" placeholder="Max posts">
             </div>
 
             <!-- Follows range row -->
-			<span class="text-bold">Follows</span>
             <div class="flex gap-2 items-center">
-                <input type="number" id="min-follows" min="0" value="0" placeholder="Min follows">
+				<span class="text-bold" style="min-width: 75px;">Follows</span>
+                <input class="filter-input" type="number" id="min-follows" min="0" value="0" placeholder="Min follows">
                 <span>to</span>
-                <input type="number" id="max-follows" min="0" value="${10000000}" placeholder="Max follows">
+                <input class="filter-input" type="number" id="max-follows" min="0" value="${10000000}" placeholder="Max follows">
             </div>
 
             <!-- Followers range row -->
-			<span class="text-bold">Followers</span>
             <div class="flex gap-2 items-center">
-                <input type="number" id="min-followers" min="0" value="0" placeholder="Min followers">
+				<span class="text-bold" style="min-width: 75px;">Followers</span>
+                <input class="filter-input" type="number" id="min-followers" min="0" value="0" placeholder="Min followers">
                 <span>to</span>
-                <input type="number" id="max-followers" min="0" value="${10000000}" placeholder="Max followers">
+                <input class="filter-input" type="number" id="max-followers" min="0" value="${10000000}" placeholder="Max followers">
             </div>
 
             <!-- Created date row -->
-			<span class="text-bold">Created after:</span>
             <div class="flex gap-4 items-center">
-                <input type="date" id="created-after" value="${BLUESKY_LAUNCH_DATE}">
+				<span class="text-bold">Profile created after:</span>
+                <input type="date" class="filter-input" id="created-after" value="${BLUESKY_LAUNCH_DATE}">
             </div>
         </div>
 
-		<!-- Sorting row -->
-		<div class="flex gap-4 items-center" style="margin-top: 1em; border: 1px solid #ccc; border-radius: 8px; padding: 1em;">
-			<span>Sort by:</span>
-			<select id="sort-feature">
-				<option value="created">Created Date</option>
-				<option value="posts">Posts</option>
-				<option value="follows">Follows</option>
-				<option value="followers">Followers</option>
-			</select>
-			<select id="sort-direction">
-				<option value="desc">Descending</option>
-				<option value="asc">Ascending</option>
-			</select>
-		</div>
+        <!-- Sorting row -->
+        <div class="flex gap-2 items-center" style="margin-top: 1em; border: 1px solid #ccc; border-radius: 8px; padding: 1em;">
+            <span class="text-bold">Sort by</span>
+            <select id="sort-feature">
+                <option value="created">Profile created Date</option>
+                <option value="posts">Posts</option>
+                <option value="follows">Follows</option>
+                <option value="followers">Followers</option>
+            </select>
+            <select id="sort-direction">
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+            </select>
+        </div>
 
-        <div id="filteredAccounts">
-            ${renderSelection(accounts)}
+        <div class="flex flex-col gap-4" style="margin: 2em 0">
+			<div class="text-bold" id="numFilteredAccounts"></div>
+            <div id="accountsList"></div>
+            <div id="loadMoreWrapper"></div>
         </div>
     `
 
 	const filterAndSortAccounts = () => {
+		cleanupLoadMoreObserver()
+		currentPage = 0 // Reset to first page when filters change
 		const withBio = (document.getElementById("with-bio") as HTMLInputElement).checked
 		const withoutBio = (document.getElementById("without-bio") as HTMLInputElement).checked
-		// const withAvatar = (document.getElementById("with-avatar") as HTMLInputElement).checked
-		// const withoutAvatar = (document.getElementById("without-avatar") as HTMLInputElement).checked
+		const searchText = (document.getElementById("search-text") as HTMLInputElement).value
+		const searchTokens = parseSearchTokens(searchText)
 
 		const minPosts = parseInt((document.getElementById("min-posts") as HTMLInputElement).value) || 0
 		const maxPosts =
@@ -290,14 +356,33 @@ const renderResults = (results: BlueskyScannerResults) => {
 		const sortDirection = (document.getElementById("sort-direction") as HTMLSelectElement).value
 
 		// Filter accounts
-		let filtered = accounts.filter((account) => {
+		filteredResults = accounts.filter((account) => {
 			// Bio filter logic: account must match at least one selected option
 			const bioMatches = account.description ? withBio : withoutBio
 			if (!bioMatches) return false
 
-			// Avatar filter logic: account must match at least one selected option
-			// const avatarMatches = account.avatar ? withAvatar : withoutAvatar
-			// if (!avatarMatches) return false
+			// Search text filter
+			if (searchText) {
+				const searchableText = `${account.handle} ${account.description || ""}`.toLowerCase()
+
+				// Check excluded terms
+				if (searchTokens.excluded.some((term) => searchableText.includes(term))) {
+					return false
+				}
+
+				// Check required terms
+				if (!searchTokens.required.every((term) => searchableText.includes(term))) {
+					return false
+				}
+
+				// Check optional terms - if any exist, at least one must match
+				if (
+					searchTokens.optional.length > 0 &&
+					!searchTokens.optional.some((term) => searchableText.includes(term))
+				) {
+					return false
+				}
+			}
 
 			const matchesPosts = account.postsCount >= minPosts && account.postsCount <= maxPosts
 			const matchesFollows = account.followsCount >= minFollows && account.followsCount <= maxFollows
@@ -312,7 +397,7 @@ const renderResults = (results: BlueskyScannerResults) => {
 		})
 
 		// Sort accounts
-		filtered.sort((a, b) => {
+		filteredResults.sort((a, b) => {
 			let comparison = 0
 			switch (sortFeature) {
 				case "created":
@@ -331,17 +416,20 @@ const renderResults = (results: BlueskyScannerResults) => {
 			return sortDirection === "desc" ? -comparison : comparison
 		})
 
-		const filteredAccountsDiv = document.getElementById("filteredAccounts")
-		if (filteredAccountsDiv) {
-			filteredAccountsDiv.innerHTML = renderSelection(filtered)
+		// Clear existing accounts and load first page
+		const accountsList = document.getElementById("accountsList")
+		if (accountsList) {
+			accountsList.innerHTML = ""
+			document.querySelector("#numFilteredAccounts")!.textContent =
+				"Found " + filteredResults.length + " of " + results.accounts.length + " accounts"
+			loadMoreAccounts()
 		}
 	}
 
 	const filterInputs = [
+		"search-text",
 		"with-bio",
 		"without-bio",
-		"with-avatar",
-		"without-avatar",
 		"min-posts",
 		"max-posts",
 		"min-follows",
