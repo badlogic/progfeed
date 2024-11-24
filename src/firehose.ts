@@ -24,7 +24,7 @@ export class Firehose {
 							author: event.did,
 							text: record.text,
 							createdAt: record.createdAt,
-							uri: `at://${event.did}/"app.bsky.feed.post"/${event.commit.rkey}`,
+							uri: `at://${event.did}/app.bsky.feed.post/${event.commit.rkey}`,
 							cid: event.commit.cid,
 							isReply: record.reply != undefined,
 						})
@@ -40,7 +40,9 @@ export class Firehose {
 					run()
 				}, 10000)
 			})
+			console.log("Starting Jetstream")
 			jetstream.start()
 		}
+		run()
 	}
 }
