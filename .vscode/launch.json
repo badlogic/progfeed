@@ -9,6 +9,13 @@
             "webRoot": "${workspaceFolder}/html"
         },
         {
+            "name": "scan",
+            "request": "launch",
+            "type": "chrome",
+            "url": "http://localhost:8080/scan.html",
+            "webRoot": "${workspaceFolder}/html"
+        },
+        {
             "name": "server",
             "type": "node",
             "port": 9230,

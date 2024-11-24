@@ -5,8 +5,10 @@
   "main": "build/server.js",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -r \"npm run build -- --watch\" \"./docker/control.sh startdev\"",
-    "build": "node ./esbuild.server.mjs",
+    "dev": "concurrently -r \"npm run build:server -- --watch\"  \"npm run build:site -- --watch\" \"./docker/control.sh startdev\"",
+    "build": "npm run build:server && npm run build:site",
+    "build:server": "node ./esbuild.server.mjs",
+    "build:site": "node ./esbuild.site.mjs",
     "clean": "rm -rf build"
   },
   "author": "contact@mariozechner.at",
