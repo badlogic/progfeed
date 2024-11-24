@@ -4,18 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bluesky Account Scanner</title>
-    <meta name="description" content="Find accounts that follow you without a bio and/or postings." />
-    <meta property="og:title" content="Bluesky Account Scanner" />
+    <title>Bluesky Follower Scanner</title>
+    <meta name="description" content="Analyze accounts that follow you." />
+    <meta property="og:title" content="Bluesky Follower Scanner" />
     <meta property="og:type" content="article" />
-    <meta property="og:description" content="Find accounts that follow you without a bio and/or postings." />
+    <meta property="og:description" content="Analyze accounts that follow you." />
     <meta property="og:url" content="https://progfeeds.mariozechner.at/scan.html" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta property="twitter:domain" content="progfeeds.mariozechner.at" />
     <meta property="twitter:url" content="https://progfeeds.mariozechner.at/scan.html" />
-    <meta name="twitter:title" content="Bluesky Account Scanner" />
-    <meta name="twitter:description" content="Find accounts that follow you without a bio and/or postings." />
-    <link rel="stylesheet" href="style.css">
+    <meta name="twitter:title" content="Bluesky Follower Scanner" />
+    <meta name="twitter:description" content="Analyze accounts that follow you." />
     <style>
         *,
         *::before,
@@ -47,6 +46,10 @@
             justify-content: center;
         }
 
+        .mb-1 {
+            margin-bottom: 0.5em;
+        }
+
         .mb-2 {
             margin-bottom: 1em;
         }
@@ -69,6 +72,10 @@
 
         .text-center {
             text-align: center;
+        }
+
+        .text-bold {
+            font-weight: 700;
         }
 
         body {
@@ -107,24 +114,10 @@
             color: #666;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+        .filters input[type="number"] {
+            width: 100px;
         }
 
-        th,
-        td {
-            text-align: left;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-        }
-
-        th {
-            background: #f5f5f5;
-        }
 
         .error {
             color: red;
@@ -147,20 +140,21 @@
 </head>
 
 <body class="flex flex-col">
-    <h1 class="text-center">Bluesky Account Scanner</h1>
-    <div class="mb-2 text-center">Find accounts that follow you without a bio and/or postings.</div>
+    <h1 class="text-center">Bluesky Follower Scanner</h1>
+    <div class="mb-1 text-center">Analyze accounts that follow you.</div>
+    <div class="text-sm text-center mb-2">Find this useful? Consider donating to our <a target="_blank"
+            href="https://bsky.app/profile/badlogic.bsky.social/post/3lazjayqwfk2q">🇺🇦 charity</a></div>
     <div class="flex justify-center mb-2">
         <input type="text" id="handle" placeholder="Bluesky handle (e.g. example.bsky.social)"
             value="E-hom.bsky.social" />
         <button id="scanButton">Scan</button>
     </div>
-    <div class="text-sm text-center">Found this useful? Consider donating to our <a target="_blank"
-            href="https://bsky.app/profile/badlogic.bsky.social/post/3lazjayqwfk2q">🇺🇦 charity</a></div>
     <div id="progress" class="progress text-center"></div>
-    <div id="error" class="error hidden"></div>
+    <div id="error" class="error hidden text-center"></div>
+    <div id="info" class="hidden text-center"></div>
     <div id="results"></div>
-    <div class="text-center text-xs italic" style="margin-bottom: 1em; margin-top: auto;">
-        <a href="https://skystats.mariozechner.at" target="_blank">Bluesky Account Scanner</a>
+    <div class="text-center text-sm italic" style="margin-bottom: 1em; margin-top: auto;">
+        <a href="https://skystats.mariozechner.at" target="_blank">Bluesky Follower Scanner</a>
         is lovingly made by
         <a href="https://bsky.app/profile/badlogic.bsky.social" target="_blank">Mario Zechner</a><br />
         No data is collected, not even your IP address.<br />
