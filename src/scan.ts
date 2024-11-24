@@ -153,7 +153,7 @@ const renderResults = (results: BlueskyScannerResults) => {
 	let currentPage = 0
 	let filteredResults: Account[] = []
 
-	const renderAccount = (account: Account) => /*html*/ `
+	const renderAccount = (account: Account, required: string[], optional: string[]) => /*html*/ `
         <div class="flex flex-col gap-2 mb-2" style="border: 1px solid #ccc; border-radius: 0.5em; padding: 1em;">
             <div class="flex gap-2 items-center">
                 ${
@@ -166,7 +166,11 @@ const renderResults = (results: BlueskyScannerResults) => {
             <div class="text-sm">Created ${getTimeAgo(account.created ?? new Date().toISOString())}</div>
             ${
 				account.description
-					? `<div style="word-break: break-word; overflow-wrap: break-word;">${account.description}</div>`
+					? `<div style="word-break: break-word; overflow-wrap: break-word;">${highlightTokens(
+							account.description,
+							required,
+							optional,
+					  )}</div>`
 					: `<div style="color: red;">No bio</div>`
 			}
             <div class="flex items-center gap-2 text-sm">
@@ -187,9 +191,11 @@ const renderResults = (results: BlueskyScannerResults) => {
 
 		const accountsList = document.getElementById("accountsList")
 		if (accountsList) {
+			const searchText = (document.getElementById("search-text") as HTMLInputElement).value
+			const searchTokens = parseSearchTokens(searchText)
 			newAccounts.forEach((account) => {
 				const div = document.createElement("div")
-				div.innerHTML = renderAccount(account)
+				div.innerHTML = renderAccount(account, searchTokens.required, searchTokens.optional)
 				accountsList.appendChild(div.childNodes[1])
 			})
 		}
@@ -250,6 +256,41 @@ const renderResults = (results: BlueskyScannerResults) => {
 		const excluded = tokens.filter((t) => t.startsWith("-")).map((t) => t.slice(1).toLowerCase())
 		const optional = tokens.filter((t) => !t.startsWith("+") && !t.startsWith("-")).map((t) => t.toLowerCase())
 		return { required, excluded, optional }
+	}
+
+	const highlightTokens = (text: string, required: string[], optional: string[]) => {
+		if (!text || !required || !optional) return text
+
+		// Create a regex pattern that matches whole words only
+		const createPattern = (tokens: string[]) => {
+			if (tokens.length === 0) return null
+			// Escape special regex characters and join with |
+			const escaped = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+			return new RegExp(`\\b(${escaped.join("|")})\\b`, "gi")
+		}
+
+		const requiredPattern = createPattern(required)
+		const optionalPattern = createPattern(optional)
+
+		let result = text
+
+		// Highlight required tokens in green
+		if (requiredPattern) {
+			result = result.replace(
+				requiredPattern,
+				'<span style="background-color: #90EE90; padding: 0 2px; border-radius: 2px;">$1</span>',
+			)
+		}
+
+		// Highlight optional tokens in yellow
+		if (optionalPattern) {
+			result = result.replace(
+				optionalPattern,
+				'<span style="background-color: #FFE4B5; padding: 0 2px; border-radius: 2px;">$1</span>',
+			)
+		}
+
+		return result
 	}
 
 	const BLUESKY_LAUNCH_DATE = "2023-02-17" // Bluesky's public launch date
