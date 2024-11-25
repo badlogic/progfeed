@@ -78,7 +78,7 @@ feeds.push({
 	rkey: "githubrepos",
 	name: "GitHub Repos",
 	description: "Skeets with URLs to GitHub repos, sorted chronologically.",
-	isPostRelevant: post => {
+	isPostRelevant: (post) => {
 		return post.text.includes("github.com");
 	},
 });

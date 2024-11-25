@@ -11,7 +11,7 @@ function dom(html, target) {
 	return elements
 }
 
-const map = (array, fn) => array.map(e => fn(e)).join("")
+const map = (array, fn) => array.map((e) => fn(e)).join("")
 
 async function update() {
 	const resp = await fetch("/api/stats")
@@ -35,10 +35,12 @@ async function update() {
             <span><b>Feeds</b></span>
             ${map(
 				stats.feedStats,
-				feed =>
+				(feed) =>
 					/*html*/ `<span><a href="https://bsky.app/profile/badlogic.bsky.social/feed/${feed.feed}">${
 						feed.feed
-					}</a>: ${feed.numPosts} posts, ${(feed.fileSize / 1024).toFixed(0)} KB</span>`,
+					}</a>: ${feed.numPosts} posts, ${(feed.fileSize / 1024).toFixed(
+						0,
+					)} KB <a href="/api/download?feed=${feed.feed}">jsonl</a></span>`,
 			)}
             </div>
         </div>`,

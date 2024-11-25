@@ -1,29 +1,29 @@
-import { AppBskyActorDefs, AtpAgent } from "@atproto/api"
-import { blocksToCarFile } from "@atproto/repo"
+import { AppBskyActorDefs, AtpAgent } from "@atproto/api";
+import { blocksToCarFile } from "@atproto/repo";
 
 interface Account {
-	handle: string
-	displayName?: string
-	avatar?: string
-	created?: string
-	description?: string
-	postsCount: number
-	followsCount: number
-	followersCount: number
+	handle: string;
+	displayName?: string;
+	avatar?: string;
+	created?: string;
+	description?: string;
+	postsCount: number;
+	followsCount: number;
+	followersCount: number;
 	loggedIn?: {
-		following: boolean
-		blocked: boolean
-		muted: boolean
+		following: boolean;
+		blocked: boolean;
+		muted: boolean;
 
-		followedBy: boolean
-		blockedBy: boolean
-		mutedBy: boolean
-	}
+		followedBy: boolean;
+		blockedBy: boolean;
+		mutedBy: boolean;
+	};
 }
 
 function mapViewerState(state?: AppBskyActorDefs.ViewerState): Account["loggedIn"] {
 	if (!state) {
-		return undefined
+		return undefined;
 	}
 
 	return {
@@ -33,55 +33,55 @@ function mapViewerState(state?: AppBskyActorDefs.ViewerState): Account["loggedIn
 		followedBy: !!state.followedBy,
 		blockedBy: !!state.blockedBy,
 		mutedBy: !!state.mutedByList,
-	}
+	};
 }
 
 type BlueskyScannerResults = {
-	accounts: Account[]
-	numNoDescription: number
-	numNoPosts: number
-	totalFollowers: number
-}
+	accounts: Account[];
+	numNoDescription: number;
+	numNoPosts: number;
+	totalFollowers: number;
+};
 
 class BlueskyScanner {
-	private progressCallback: (message: string) => void
-	private errorCallback: (message: string) => void
-	private resultsCallback: (results: BlueskyScannerResults) => void
+	private progressCallback: (message: string) => void;
+	private errorCallback: (message: string) => void;
+	private resultsCallback: (results: BlueskyScannerResults) => void;
 
 	constructor(
 		progressCallback: (message: string) => void,
 		errorCallback: (message: string) => void,
-		resultsCallback: (results: any) => void,
+		resultsCallback: (results: any) => void
 	) {
-		this.progressCallback = progressCallback
-		this.errorCallback = errorCallback
-		this.resultsCallback = resultsCallback
+		this.progressCallback = progressCallback;
+		this.errorCallback = errorCallback;
+		this.resultsCallback = resultsCallback;
 	}
 
 	async scanAccount(handle: string, loginHandle?: string, loginPassword?: string) {
 		try {
-			let agent: AtpAgent
-			let loggedIn = false
+			let agent: AtpAgent;
+			let loggedIn = false;
 			if (!loginHandle || !loginPassword) {
-				agent = new AtpAgent({ service: "https://public.api.bsky.app" })
+				agent = new AtpAgent({ service: "https://public.api.bsky.app" });
 			} else {
-				agent = new AtpAgent({ service: "https://bsky.social" })
-				const resp = await agent.login({ identifier: loginHandle, password: loginPassword })
+				agent = new AtpAgent({ service: "https://bsky.social" });
+				const resp = await agent.login({ identifier: loginHandle, password: loginPassword });
 				if (!resp.success) {
-					this.errorCallback("Could not log in. Check your user name and password")
-					return
+					this.errorCallback("Could not log in. Check your user name and password");
+					return;
 				}
 			}
 
-			handle = handle.replaceAll("@", "")
-			const followers: AppBskyActorDefs.ProfileView[] = []
-			let cursor: string | undefined = undefined
+			handle = handle.replaceAll("@", "");
+			const followers: AppBskyActorDefs.ProfileView[] = [];
+			let cursor: string | undefined = undefined;
 
-			const history = localStorage.getItem(handle)
+			const history = localStorage.getItem(handle);
 			if (history && location.hostname.includes("localhost")) {
-				this.progressCallback("Showing previos results for " + handle)
-				this.resultsCallback(JSON.parse(history))
-				return
+				this.progressCallback("Showing previos results for " + handle);
+				this.resultsCallback(JSON.parse(history));
+				return;
 			}
 
 			do {
@@ -89,41 +89,41 @@ class BlueskyScanner {
 					actor: handle,
 					cursor,
 					limit: 100,
-				})
+				});
 
 				if (!resp.success) {
-					throw new Error("Failed to fetch followers")
+					throw new Error("Failed to fetch followers");
 				}
 
-				followers.push(...resp.data.followers)
-				cursor = resp.data.cursor
-				this.progressCallback(`Fetched ${followers.length} followers...`)
-			} while (cursor)
+				followers.push(...resp.data.followers);
+				cursor = resp.data.cursor;
+				this.progressCallback(`Fetched ${followers.length} followers...`);
+			} while (cursor);
 
-			let numNoDescription = 0
-			let numNoPosts = 0
-			const accounts: Account[] = []
+			let numNoDescription = 0;
+			let numNoPosts = 0;
+			const accounts: Account[] = [];
 
-			const CHUNK_SIZE = 25
+			const CHUNK_SIZE = 25;
 			for (let i = 0; i < followers.length; i += CHUNK_SIZE) {
-				const chunk = followers.slice(i, i + CHUNK_SIZE)
-				const dids = chunk.map((f) => f.did)
+				const chunk = followers.slice(i, i + CHUNK_SIZE);
+				const dids = chunk.map((f) => f.did);
 
 				try {
 					const profiles = await agent.app.bsky.actor.getProfiles({
 						actors: dids,
-					})
+					});
 
 					for (let j = 0; j < chunk.length; j++) {
-						const follower = chunk[j]
-						const profile = profiles.data.profiles[j]
+						const follower = chunk[j];
+						const profile = profiles.data.profiles[j];
 
 						if (!follower.description || follower.description.trim().length == 0) {
-							numNoDescription++
+							numNoDescription++;
 						}
 
 						if (profile.postsCount === 0) {
-							numNoPosts++
+							numNoPosts++;
 						}
 
 						accounts.push({
@@ -138,17 +138,17 @@ class BlueskyScanner {
 							followsCount: profile.followsCount ?? 0,
 							followersCount: profile.followersCount ?? 0,
 							loggedIn: mapViewerState(profile.viewer),
-						})
+						});
 					}
 
-					await new Promise((resolve) => setTimeout(resolve, 100))
+					await new Promise((resolve) => setTimeout(resolve, 100));
 
 					this.progressCallback(
-						`Analyzed ${Math.min(i + CHUNK_SIZE, followers.length)}/${followers.length} followers...`,
-					)
+						`Analyzed ${Math.min(i + CHUNK_SIZE, followers.length)}/${followers.length} followers...`
+					);
 				} catch (error) {
-					this.errorCallback(`Error fetching profiles batch ${i}-${i + CHUNK_SIZE}`)
-					console.error(error)
+					this.errorCallback(`Error fetching profiles batch ${i}-${i + CHUNK_SIZE}`);
+					console.error(error);
 				}
 			}
 
@@ -157,43 +157,43 @@ class BlueskyScanner {
 				numNoDescription,
 				numNoPosts,
 				totalFollowers: followers.length,
-			}
-			if (location.hostname.includes("localhost")) localStorage.setItem(handle, JSON.stringify(result))
-			this.resultsCallback(result)
+			};
+			if (location.hostname.includes("localhost")) localStorage.setItem(handle, JSON.stringify(result));
+			this.resultsCallback(result);
 		} catch (error) {
-			this.errorCallback("Error scanning account: " + (error as Error).message)
-			console.error(error)
+			this.errorCallback("Error scanning account: " + (error as Error).message);
+			console.error(error);
 		}
 	}
 }
 
 const getTimeAgo = (dateString: string): string => {
-	const date = new Date(dateString)
-	const now = new Date()
-	const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-	const minutes = Math.floor(seconds / 60)
-	const hours = Math.floor(minutes / 60)
-	const days = Math.floor(hours / 24)
-	const months = Math.floor(days / 30)
-	const years = Math.floor(days / 365)
+	const date = new Date(dateString);
+	const now = new Date();
+	const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+	const minutes = Math.floor(seconds / 60);
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours / 24);
+	const months = Math.floor(days / 30);
+	const years = Math.floor(days / 365);
 
-	if (years > 0) return `${years} ${years === 1 ? "year" : "years"} ago`
-	if (months > 0) return `${months} ${months === 1 ? "month" : "months"} ago`
-	if (days > 0) return `${days} ${days === 1 ? "day" : "days"} ago`
-	if (hours > 0) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`
-	if (minutes > 0) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`
-	return "just now"
-}
+	if (years > 0) return `${years} ${years === 1 ? "year" : "years"} ago`;
+	if (months > 0) return `${months} ${months === 1 ? "month" : "months"} ago`;
+	if (days > 0) return `${days} ${days === 1 ? "day" : "days"} ago`;
+	if (hours > 0) return `${hours} ${hours === 1 ? "hour" : "hours"} ago`;
+	if (minutes > 0) return `${minutes} ${minutes === 1 ? "minute" : "minutes"} ago`;
+	return "just now";
+};
 
 const renderResults = (results: BlueskyScannerResults) => {
-	const resultsDiv = document.getElementById("results") as HTMLDivElement
-	const { accounts, totalFollowers } = results
-	const ITEMS_PER_PAGE = 20
-	let currentPage = 0
-	let filteredResults: Account[] = []
-	const handle = document.querySelector<HTMLInputElement>("#handle")!.value.toLowerCase().trim()
-	const loginHandle = document.querySelector<HTMLInputElement>("#loginHandle")!.value.toLowerCase().trim()
-	const loggedIn = loginHandle.trim().length > 0
+	const resultsDiv = document.getElementById("results") as HTMLDivElement;
+	const { accounts, totalFollowers } = results;
+	const ITEMS_PER_PAGE = 20;
+	let currentPage = 0;
+	let filteredResults: Account[] = [];
+	const handle = document.querySelector<HTMLInputElement>("#handle")!.value.toLowerCase().trim();
+	const loginHandle = document.querySelector<HTMLInputElement>("#loginHandle")!.value.toLowerCase().trim();
+	const loggedIn = loginHandle.trim().length > 0;
 
 	const renderAccount = (account: Account, required: string[], optional: string[]) => /*html*/ `
         <div class="flex flex-col gap-2 mb-2" style="border: 1px solid #ccc; border-radius: 0.5em; padding: 1em;">
@@ -218,7 +218,7 @@ const renderResults = (results: BlueskyScannerResults) => {
 					? `<div style="word-break: break-word; overflow-wrap: break-word;">${highlightTokens(
 							account.description,
 							required,
-							optional,
+							optional
 					  )}</div>`
 					: `<div style="color: red;">No bio</div>`
 			}
@@ -245,121 +245,121 @@ const renderResults = (results: BlueskyScannerResults) => {
 					: ""
 			}
         </div>
-    `
+    `;
 
 	const loadMoreAccounts = () => {
-		const start = currentPage * ITEMS_PER_PAGE
-		const end = start + ITEMS_PER_PAGE
-		const newAccounts = filteredResults.slice(start, end)
+		const start = currentPage * ITEMS_PER_PAGE;
+		const end = start + ITEMS_PER_PAGE;
+		const newAccounts = filteredResults.slice(start, end);
 
 		// Clean up existing observer if there is one
-		cleanupLoadMoreObserver()
+		cleanupLoadMoreObserver();
 
-		const accountsList = document.getElementById("accountsList")
+		const accountsList = document.getElementById("accountsList");
 		if (accountsList) {
-			const searchText = (document.getElementById("search-text") as HTMLInputElement).value
-			const searchTokens = parseSearchTokens(searchText)
+			const searchText = (document.getElementById("search-text") as HTMLInputElement).value;
+			const searchTokens = parseSearchTokens(searchText);
 			newAccounts.forEach((account) => {
-				const div = document.createElement("div")
-				div.innerHTML = renderAccount(account, searchTokens.required, searchTokens.optional)
-				accountsList.appendChild(div.childNodes[1])
-			})
+				const div = document.createElement("div");
+				div.innerHTML = renderAccount(account, searchTokens.required, searchTokens.optional);
+				accountsList.appendChild(div.childNodes[1]);
+			});
 		}
 
 		// Update or remove the Load More button
-		const loadMoreWrapper = document.getElementById("loadMoreWrapper")
+		const loadMoreWrapper = document.getElementById("loadMoreWrapper");
 		if (loadMoreWrapper) {
 			if (filteredResults.length > end) {
 				loadMoreWrapper.innerHTML = `
 				<div id="loadMore" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
 					Loading more... (${filteredResults.length - end} remaining)
-				</div>`
-				setupLoadMoreObserver()
+				</div>`;
+				setupLoadMoreObserver();
 			} else {
-				loadMoreWrapper.innerHTML = ""
+				loadMoreWrapper.innerHTML = "";
 			}
 		}
-	}
+	};
 
-	let currentObserver: IntersectionObserver | null = null
+	let currentObserver: IntersectionObserver | null = null;
 
 	const cleanupLoadMoreObserver = () => {
 		if (currentObserver) {
-			currentObserver.disconnect()
-			currentObserver = null
+			currentObserver.disconnect();
+			currentObserver = null;
 		}
-	}
+	};
 
 	const setupLoadMoreObserver = () => {
-		const loadMore = document.getElementById("loadMore")
+		const loadMore = document.getElementById("loadMore");
 		if (loadMore) {
 			// Clean up any existing observer first
-			cleanupLoadMoreObserver()
+			cleanupLoadMoreObserver();
 
 			currentObserver = new IntersectionObserver(
 				(entries) => {
-					const entry = entries[0]
+					const entry = entries[0];
 					if (entry.isIntersecting) {
-						currentPage++
-						loadMoreAccounts()
+						currentPage++;
+						loadMoreAccounts();
 					}
 				},
 				{
 					rootMargin: "200px",
-				},
-			)
+				}
+			);
 
-			currentObserver.observe(loadMore)
+			currentObserver.observe(loadMore);
 		}
-	}
+	};
 
 	const parseSearchTokens = (searchText: string) => {
 		const tokens = searchText
 			.trim()
 			.split(/\s+/)
-			.filter((t) => t)
-		const required = tokens.filter((t) => t.startsWith("+")).map((t) => t.slice(1).toLowerCase())
-		const excluded = tokens.filter((t) => t.startsWith("-")).map((t) => t.slice(1).toLowerCase())
-		const optional = tokens.filter((t) => !t.startsWith("+") && !t.startsWith("-")).map((t) => t.toLowerCase())
-		return { required, excluded, optional }
-	}
+			.filter((t) => t);
+		const required = tokens.filter((t) => t.startsWith("+")).map((t) => t.slice(1).toLowerCase());
+		const excluded = tokens.filter((t) => t.startsWith("-")).map((t) => t.slice(1).toLowerCase());
+		const optional = tokens.filter((t) => !t.startsWith("+") && !t.startsWith("-")).map((t) => t.toLowerCase());
+		return { required, excluded, optional };
+	};
 
 	const highlightTokens = (text: string, required: string[], optional: string[]) => {
-		if (!text || !required || !optional) return text
+		if (!text || !required || !optional) return text;
 
 		// Create a regex pattern that matches partial words
 		const createPattern = (tokens: string[]) => {
-			if (tokens.length === 0) return null
+			if (tokens.length === 0) return null;
 			// Escape special regex characters and join with |
-			const escaped = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-			return new RegExp(`(${escaped.join("|")})`, "gi")
-		}
+			const escaped = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+			return new RegExp(`(${escaped.join("|")})`, "gi");
+		};
 
-		const requiredPattern = createPattern(required)
-		const optionalPattern = createPattern(optional)
+		const requiredPattern = createPattern(required);
+		const optionalPattern = createPattern(optional);
 
-		let result = text
+		let result = text;
 
 		// Highlight required tokens in green
 		if (requiredPattern) {
 			result = result.replace(
 				requiredPattern,
-				'<span style="background-color: #90EE90; padding: 0 2px; border-radius: 2px;">$1</span>',
-			)
+				'<span style="background-color: #90EE90; padding: 0 2px; border-radius: 2px;">$1</span>'
+			);
 		}
 
 		// Highlight optional tokens in yellow
 		if (optionalPattern) {
 			result = result.replace(
 				optionalPattern,
-				'<span style="background-color: #FFE4B5; padding: 0 2px; border-radius: 2px;">$1</span>',
-			)
+				'<span style="background-color: #FFE4B5; padding: 0 2px; border-radius: 2px;">$1</span>'
+			);
 		}
 
-		return result
-	}
+		return result;
+	};
 
-	const BLUESKY_LAUNCH_DATE = "2023-02-17" // Bluesky's public launch date
+	const BLUESKY_LAUNCH_DATE = "2023-02-17"; // Bluesky's public launch date
 
 	resultsDiv.innerHTML = /*html*/ `
         <div class="text-bold flex gap-2 items-center mb-2" style="font-size: 1.25em">
@@ -466,62 +466,62 @@ const renderResults = (results: BlueskyScannerResults) => {
             <div id="loadMoreWrapper"></div>
         </div>
 
-    `
+    `;
 
 	const filterAndSortAccounts = () => {
-		cleanupLoadMoreObserver()
-		currentPage = 0 // Reset to first page when filters change
-		const withBio = (document.getElementById("with-bio") as HTMLInputElement).checked
-		const withoutBio = (document.getElementById("without-bio") as HTMLInputElement).checked
-		const searchText = (document.getElementById("search-text") as HTMLInputElement).value
-		const searchTokens = parseSearchTokens(searchText)
+		cleanupLoadMoreObserver();
+		currentPage = 0; // Reset to first page when filters change
+		const withBio = (document.getElementById("with-bio") as HTMLInputElement).checked;
+		const withoutBio = (document.getElementById("without-bio") as HTMLInputElement).checked;
+		const searchText = (document.getElementById("search-text") as HTMLInputElement).value;
+		const searchTokens = parseSearchTokens(searchText);
 
-		const minPosts = parseInt((document.getElementById("min-posts") as HTMLInputElement).value) || 0
+		const minPosts = parseInt((document.getElementById("min-posts") as HTMLInputElement).value) || 0;
 		const maxPosts =
-			parseInt((document.getElementById("max-posts") as HTMLInputElement).value) || Number.MAX_SAFE_INTEGER
-		const minFollows = parseInt((document.getElementById("min-follows") as HTMLInputElement).value) || 0
+			parseInt((document.getElementById("max-posts") as HTMLInputElement).value) || Number.MAX_SAFE_INTEGER;
+		const minFollows = parseInt((document.getElementById("min-follows") as HTMLInputElement).value) || 0;
 		const maxFollows =
-			parseInt((document.getElementById("max-follows") as HTMLInputElement).value) || Number.MAX_SAFE_INTEGER
-		const minFollowers = parseInt((document.getElementById("min-followers") as HTMLInputElement).value) || 0
+			parseInt((document.getElementById("max-follows") as HTMLInputElement).value) || Number.MAX_SAFE_INTEGER;
+		const minFollowers = parseInt((document.getElementById("min-followers") as HTMLInputElement).value) || 0;
 		const maxFollowers =
-			parseInt((document.getElementById("max-followers") as HTMLInputElement).value) || Number.MAX_SAFE_INTEGER
-		const createdAfter = (document.getElementById("created-after") as HTMLInputElement).value
-		const sortFeature = (document.getElementById("sort-feature") as HTMLSelectElement).value
-		const sortDirection = (document.getElementById("sort-direction") as HTMLSelectElement).value
+			parseInt((document.getElementById("max-followers") as HTMLInputElement).value) || Number.MAX_SAFE_INTEGER;
+		const createdAfter = (document.getElementById("created-after") as HTMLInputElement).value;
+		const sortFeature = (document.getElementById("sort-feature") as HTMLSelectElement).value;
+		const sortDirection = (document.getElementById("sort-direction") as HTMLSelectElement).value;
 
-		let withFollowing = false
-		let withoutFollowing = false
+		let withFollowing = false;
+		let withoutFollowing = false;
 		if (loggedIn) {
-			withFollowing = (document.getElementById("with-following") as HTMLInputElement).checked
-			withoutFollowing = (document.getElementById("without-following") as HTMLInputElement).checked
+			withFollowing = (document.getElementById("with-following") as HTMLInputElement).checked;
+			withoutFollowing = (document.getElementById("without-following") as HTMLInputElement).checked;
 		}
 
 		// Filter accounts
 		filteredResults = accounts.filter((account) => {
 			// Bio filter logic: account must match at least one selected option
-			const bioMatches = account.description ? withBio : withoutBio
-			if (!bioMatches) return false
+			const bioMatches = account.description ? withBio : withoutBio;
+			if (!bioMatches) return false;
 
 			// Followed by you filter: account must match at least one selected option
 			if (account.loggedIn) {
-				const followingMatches = account.loggedIn.following ? withFollowing : withoutFollowing
-				if (!followingMatches) return false
+				const followingMatches = account.loggedIn.following ? withFollowing : withoutFollowing;
+				if (!followingMatches) return false;
 			}
 
 			// Search text filter
 			if (searchText) {
 				const searchableText = `${account.handle} ${account.displayName ?? ""} ${
 					account.description || ""
-				}`.toLowerCase()
+				}`.toLowerCase();
 
 				// Check excluded terms
 				if (searchTokens.excluded.some((term) => searchableText.includes(term))) {
-					return false
+					return false;
 				}
 
 				// Check required terms
 				if (!searchTokens.required.every((term) => searchableText.includes(term))) {
-					return false
+					return false;
 				}
 
 				// Check optional terms - if any exist, at least one must match
@@ -529,57 +529,57 @@ const renderResults = (results: BlueskyScannerResults) => {
 					searchTokens.optional.length > 0 &&
 					!searchTokens.optional.some((term) => searchableText.includes(term))
 				) {
-					return false
+					return false;
 				}
 			}
 
-			const matchesPosts = account.postsCount >= minPosts && account.postsCount <= maxPosts
-			const matchesFollows = account.followsCount >= minFollows && account.followsCount <= maxFollows
-			const matchesFollowers = account.followersCount >= minFollowers && account.followersCount <= maxFollowers
+			const matchesPosts = account.postsCount >= minPosts && account.postsCount <= maxPosts;
+			const matchesFollows = account.followsCount >= minFollows && account.followsCount <= maxFollows;
+			const matchesFollowers = account.followersCount >= minFollowers && account.followersCount <= maxFollowers;
 
-			let matchesCreated = true
+			let matchesCreated = true;
 			if (account.created && createdAfter) {
-				matchesCreated = new Date(account.created) >= new Date(createdAfter)
+				matchesCreated = new Date(account.created) >= new Date(createdAfter);
 			}
 
-			return matchesPosts && matchesFollows && matchesFollowers && matchesCreated
-		})
+			return matchesPosts && matchesFollows && matchesFollowers && matchesCreated;
+		});
 
 		// Sort accounts
 		filteredResults.sort((a, b) => {
-			let comparison = 0
+			let comparison = 0;
 			switch (sortFeature) {
 				case "followedAt":
 					// Nothing to do here.
-					break
+					break;
 				case "created":
-					comparison = new Date(a.created || 0).getTime() - new Date(b.created || 0).getTime()
-					break
+					comparison = new Date(a.created || 0).getTime() - new Date(b.created || 0).getTime();
+					break;
 				case "posts":
-					comparison = a.postsCount - b.postsCount
-					break
+					comparison = a.postsCount - b.postsCount;
+					break;
 				case "follows":
-					comparison = a.followsCount - b.followsCount
-					break
+					comparison = a.followsCount - b.followsCount;
+					break;
 				case "followers":
-					comparison = a.followersCount - b.followersCount
-					break
+					comparison = a.followersCount - b.followersCount;
+					break;
 			}
-			return sortDirection === "desc" ? -comparison : comparison
-		})
+			return sortDirection === "desc" ? -comparison : comparison;
+		});
 		if (sortFeature == "followedAt" && sortDirection !== "desc") {
-			filteredResults.reverse()
+			filteredResults.reverse();
 		}
 
 		// Clear existing accounts and load first page
-		const accountsList = document.getElementById("accountsList")
+		const accountsList = document.getElementById("accountsList");
 		if (accountsList) {
-			accountsList.innerHTML = ""
+			accountsList.innerHTML = "";
 			document.querySelector("#numFilteredAccounts")!.textContent =
-				"Matched " + filteredResults.length + " of " + results.accounts.length + " accounts"
-			loadMoreAccounts()
+				"Matched " + filteredResults.length + " of " + results.accounts.length + " accounts";
+			loadMoreAccounts();
 		}
-	}
+	};
 
 	const filterInputs = [
 		"search-text",
@@ -596,138 +596,138 @@ const renderResults = (results: BlueskyScannerResults) => {
 		"created-after",
 		"sort-feature",
 		"sort-direction",
-	]
+	];
 
 	filterInputs.forEach((id) => {
-		const element = document.getElementById(id)
+		const element = document.getElementById(id);
 		if (element) {
-			element.addEventListener("input", filterAndSortAccounts)
+			element.addEventListener("input", filterAndSortAccounts);
 		}
-	})
+	});
 
 	// Reset filters
-	const resetButton = document.querySelector<HTMLButtonElement>("#reset-filters")!
+	const resetButton = document.querySelector<HTMLButtonElement>("#reset-filters")!;
 	resetButton.addEventListener("click", () => {
-		;(document.getElementById("with-bio") as HTMLInputElement).checked = true
-		;(document.getElementById("without-bio") as HTMLInputElement).checked = true
-		;(document.getElementById("with-following") as HTMLInputElement).checked = true
-		;(document.getElementById("without-following") as HTMLInputElement).checked = true
-		;(document.getElementById("search-text") as HTMLInputElement).value = ""
-		;(document.getElementById("min-posts") as HTMLInputElement).value = "0"
-		;(document.getElementById("max-posts") as HTMLInputElement).value = "10000000"
-		;(document.getElementById("min-follows") as HTMLInputElement).value = "0"
-		;(document.getElementById("max-follows") as HTMLInputElement).value = "10000000"
-		;(document.getElementById("min-followers") as HTMLInputElement).value = "0"
-		;(document.getElementById("max-followers") as HTMLInputElement).value = "10000000"
-		;(document.getElementById("created-after") as HTMLInputElement).value = BLUESKY_LAUNCH_DATE
-		;(document.getElementById("sort-feature") as HTMLSelectElement).value = "followedAt"
-		;(document.getElementById("sort-direction") as HTMLSelectElement).value = "desc"
-		filterAndSortAccounts()
-	})
+		(document.getElementById("with-bio") as HTMLInputElement).checked = true;
+		(document.getElementById("without-bio") as HTMLInputElement).checked = true;
+		(document.getElementById("with-following") as HTMLInputElement).checked = true;
+		(document.getElementById("without-following") as HTMLInputElement).checked = true;
+		(document.getElementById("search-text") as HTMLInputElement).value = "";
+		(document.getElementById("min-posts") as HTMLInputElement).value = "0";
+		(document.getElementById("max-posts") as HTMLInputElement).value = "10000000";
+		(document.getElementById("min-follows") as HTMLInputElement).value = "0";
+		(document.getElementById("max-follows") as HTMLInputElement).value = "10000000";
+		(document.getElementById("min-followers") as HTMLInputElement).value = "0";
+		(document.getElementById("max-followers") as HTMLInputElement).value = "10000000";
+		(document.getElementById("created-after") as HTMLInputElement).value = BLUESKY_LAUNCH_DATE;
+		(document.getElementById("sort-feature") as HTMLSelectElement).value = "followedAt";
+		(document.getElementById("sort-direction") as HTMLSelectElement).value = "desc";
+		filterAndSortAccounts();
+	});
 
 	// Download all followers
-	const downloadButton = document.querySelector<HTMLButtonElement>("#download")!
+	const downloadButton = document.querySelector<HTMLButtonElement>("#download")!;
 	downloadButton.addEventListener("click", () => {
 		const handle = (document.getElementById("handle") as HTMLInputElement).value
 			.trim()
 			.toLowerCase()
-			.replace("@", "")
-		downloadFile(results.accounts, `${handle}.json`)
-	})
+			.replace("@", "");
+		downloadFile(results.accounts, `${handle}.json`);
+	});
 
 	// Download filtered followers
-	const downloadFilteredButton = document.querySelector<HTMLButtonElement>("#download-filtered")!
+	const downloadFilteredButton = document.querySelector<HTMLButtonElement>("#download-filtered")!;
 	downloadFilteredButton.addEventListener("click", () => {
 		const handle = (document.getElementById("handle") as HTMLInputElement).value
 			.trim()
 			.toLowerCase()
-			.replace("@", "")
-		downloadFile(filteredResults, `${handle}-filtered.json`)
-	})
+			.replace("@", "");
+		downloadFile(filteredResults, `${handle}-filtered.json`);
+	});
 
 	// Initial render
-	filterAndSortAccounts()
-}
+	filterAndSortAccounts();
+};
 
 function downloadFile(data: any, filename: string, type?: string): void {
-	let content: string
-	let mimeType: string
+	let content: string;
+	let mimeType: string;
 
 	if (typeof data === "object") {
-		content = JSON.stringify(data, null, 2)
-		mimeType = type || "application/json"
+		content = JSON.stringify(data, null, 2);
+		mimeType = type || "application/json";
 	} else {
-		content = String(data)
-		mimeType = type || "text/plain"
+		content = String(data);
+		mimeType = type || "text/plain";
 	}
 
-	const blob = new Blob([content], { type: mimeType })
-	const url = URL.createObjectURL(blob)
+	const blob = new Blob([content], { type: mimeType });
+	const url = URL.createObjectURL(blob);
 
-	const downloadLink = document.createElement("a")
-	downloadLink.href = url
-	downloadLink.download = filename
+	const downloadLink = document.createElement("a");
+	downloadLink.href = url;
+	downloadLink.download = filename;
 
-	document.body.appendChild(downloadLink)
-	downloadLink.click()
-	document.body.removeChild(downloadLink)
+	document.body.appendChild(downloadLink);
+	downloadLink.click();
+	document.body.removeChild(downloadLink);
 
-	URL.revokeObjectURL(url)
+	URL.revokeObjectURL(url);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-	const handleInput = document.getElementById("handle") as HTMLInputElement
-	const scanButton = document.getElementById("scanButton") as HTMLButtonElement
-	const progressDiv = document.getElementById("progress") as HTMLDivElement
-	const infoDiv = document.getElementById("info") as HTMLDivElement
-	const errorDiv = document.getElementById("error") as HTMLDivElement
-	const resultsDiv = document.getElementById("results") as HTMLDivElement
+	const handleInput = document.getElementById("handle") as HTMLInputElement;
+	const scanButton = document.getElementById("scanButton") as HTMLButtonElement;
+	const progressDiv = document.getElementById("progress") as HTMLDivElement;
+	const infoDiv = document.getElementById("info") as HTMLDivElement;
+	const errorDiv = document.getElementById("error") as HTMLDivElement;
+	const resultsDiv = document.getElementById("results") as HTMLDivElement;
 
 	const scanner = new BlueskyScanner(
 		(message: string) => {
-			progressDiv.textContent = message
+			progressDiv.textContent = message;
 		},
 		(message: string) => {
-			progressDiv.classList.add("hidden")
-			infoDiv.classList.add("hidden")
-			errorDiv.classList.remove("hidden")
-			errorDiv.textContent = message
+			progressDiv.classList.add("hidden");
+			infoDiv.classList.add("hidden");
+			errorDiv.classList.remove("hidden");
+			errorDiv.textContent = message;
 		},
 		(results) => {
-			progressDiv.classList.add("hidden")
-			infoDiv.classList.add("hidden")
-			renderResults(results)
-		},
-	)
+			progressDiv.classList.add("hidden");
+			infoDiv.classList.add("hidden");
+			renderResults(results);
+		}
+	);
 
 	scanButton.addEventListener("click", async () => {
-		const handle = handleInput.value.trim().toLowerCase()
+		const handle = handleInput.value.trim().toLowerCase();
 		if (!handle) {
-			errorDiv.textContent = "Please enter a handle"
-			return
+			errorDiv.textContent = "Please enter a handle";
+			return;
 		}
 
-		errorDiv.textContent = ""
-		errorDiv.classList.add("hidden")
-		progressDiv.textContent = "Starting scan..."
-		progressDiv.classList.remove("hidden")
-		infoDiv.classList.remove("hidden")
-		infoDiv.textContent = "Scanning can take a long time. Do not switch away from the tab on mobile."
-		resultsDiv.innerHTML = ""
+		errorDiv.textContent = "";
+		errorDiv.classList.add("hidden");
+		progressDiv.textContent = "Starting scan...";
+		progressDiv.classList.remove("hidden");
+		infoDiv.classList.remove("hidden");
+		infoDiv.textContent = "Scanning can take a long time. Do not switch away from the tab on mobile.";
+		resultsDiv.innerHTML = "";
 
-		scanButton.disabled = true
+		scanButton.disabled = true;
 
 		try {
-			const loginHandle = document.querySelector<HTMLInputElement>("#loginHandle")!.value
-			const loginPassword = document.querySelector<HTMLInputElement>("#loginPassword")!.value
-			await scanner.scanAccount(handle, loginHandle, loginPassword)
+			const loginHandle = document.querySelector<HTMLInputElement>("#loginHandle")!.value;
+			const loginPassword = document.querySelector<HTMLInputElement>("#loginPassword")!.value;
+			await scanner.scanAccount(handle, loginHandle, loginPassword);
 		} finally {
-			scanButton.disabled = false
-			progressDiv.textContent = "Scan complete"
+			scanButton.disabled = false;
+			progressDiv.textContent = "Scan complete";
 		}
-	})
+	});
 
 	if (location.hostname.includes("localhost")) {
 		// scanButton.click()
 	}
-})
+});
