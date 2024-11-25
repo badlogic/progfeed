@@ -2,6 +2,7 @@ import { AppBskyActorDefs, AtpAgent } from "@atproto/api"
 
 interface Account {
 	handle: string
+	displayName?: string
 	avatar?: string
 	created?: string
 	description?: string
@@ -91,6 +92,7 @@ class BlueskyScanner {
 
 						accounts.push({
 							handle: follower.handle,
+							displayName: follower.displayName,
 							avatar: follower.avatar,
 							created: follower.createdAt,
 							description: follower.description
@@ -161,7 +163,16 @@ const renderResults = (results: BlueskyScannerResults) => {
 						? `<img loading="lazy" style="width: 64px; height: 64px; border-radius: 100%;" src="${account.avatar}">`
 						: `<span class="sus">No Pic</span>`
 				}
-                <a href="https://${account.handle}" target="_blank">${account.handle}</a>
+				<div class="flex flex-col">
+                	<a href="https://bsky.app/profile/${account.handle}" target="_blank">${
+		account.displayName ?? account.handle
+	}</a>
+					${
+						account.displayName
+							? /*html*/ `<a href="https://bsky.app/profile/${account.handle}" target="_blank" class="text-sm" style="color: #777">${account.handle}</a>`
+							: ""
+					}
+				</div>
             </div>
             <div class="text-sm">Created ${getTimeAgo(account.created ?? new Date().toISOString())}</div>
             ${
@@ -297,6 +308,7 @@ const renderResults = (results: BlueskyScannerResults) => {
 
 	resultsDiv.innerHTML = /*html*/ `
         <h2>${totalFollowers} Followers analyzed</h2>
+		<button id="download" class="mb-2">Download JSON</button>
 
         <div class="filters flex flex-col gap-2" style="border: 1px solid #ccc; border-radius: 8px; padding: 1em;">
             <div style="font-weight: 700; font-size: 1.25em;">Filters</div>
@@ -373,6 +385,7 @@ const renderResults = (results: BlueskyScannerResults) => {
 
         <div class="flex flex-col gap-4" style="margin: 2em 0">
 			<div class="text-bold" id="numFilteredAccounts"></div>
+			<button id="download-filtered">Download filtered accounts JSON</button>
             <div id="accountsList"></div>
             <div id="loadMoreWrapper"></div>
         </div>
@@ -407,7 +420,9 @@ const renderResults = (results: BlueskyScannerResults) => {
 
 			// Search text filter
 			if (searchText) {
-				const searchableText = `${account.handle} ${account.description || ""}`.toLowerCase()
+				const searchableText = `${account.handle} ${account.displayName ?? ""} ${
+					account.description || ""
+				}`.toLowerCase()
 
 				// Check excluded terms
 				if (searchTokens.excluded.some((term) => searchableText.includes(term))) {
@@ -504,7 +519,6 @@ const renderResults = (results: BlueskyScannerResults) => {
 		;(document.getElementById("with-bio") as HTMLInputElement).checked = true
 		;(document.getElementById("without-bio") as HTMLInputElement).checked = true
 		;(document.getElementById("search-text") as HTMLInputElement).value = ""
-
 		;(document.getElementById("min-posts") as HTMLInputElement).value = "0"
 		;(document.getElementById("max-posts") as HTMLInputElement).value = "10000000"
 		;(document.getElementById("min-follows") as HTMLInputElement).value = "0"
@@ -517,8 +531,54 @@ const renderResults = (results: BlueskyScannerResults) => {
 		filterAndSortAccounts()
 	})
 
+	// Download all followers
+	const downloadButton = document.querySelector<HTMLButtonElement>("#download")!
+	downloadButton.addEventListener("click", () => {
+		const handle = (document.getElementById("handle") as HTMLInputElement).value
+			.trim()
+			.toLowerCase()
+			.replace("@", "")
+		downloadFile(results.accounts, `${handle}.json`)
+	})
+
+	// Download filtered followers
+	const downloadFilteredButton = document.querySelector<HTMLButtonElement>("#download-filtered")!
+	downloadFilteredButton.addEventListener("click", () => {
+		const handle = (document.getElementById("handle") as HTMLInputElement).value
+			.trim()
+			.toLowerCase()
+			.replace("@", "")
+		downloadFile(filteredResults, `${handle}-filtered.json`)
+	})
+
 	// Initial render
 	filterAndSortAccounts()
+}
+
+function downloadFile(data: any, filename: string, type?: string): void {
+	let content: string
+	let mimeType: string
+
+	if (typeof data === "object") {
+		content = JSON.stringify(data, null, 2)
+		mimeType = type || "application/json"
+	} else {
+		content = String(data)
+		mimeType = type || "text/plain"
+	}
+
+	const blob = new Blob([content], { type: mimeType })
+	const url = URL.createObjectURL(blob)
+
+	const downloadLink = document.createElement("a")
+	downloadLink.href = url
+	downloadLink.download = filename
+
+	document.body.appendChild(downloadLink)
+	downloadLink.click()
+	document.body.removeChild(downloadLink)
+
+	URL.revokeObjectURL(url)
 }
 
 document.addEventListener("DOMContentLoaded", () => {
