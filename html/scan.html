@@ -110,8 +110,8 @@
         }
 
         .progress {
-            margin: 1rem 0;
-            color: #666;
+            color: #09ad0e;
+            font-size: 1.25em;
         }
 
         .filters input[type="number"] {
@@ -142,17 +142,70 @@
             border: 1px solid #ccc;
             border-radius: 8px;
         }
+
+        .json {
+            text-align: end;
+            border: 1px solid #0070f3;
+            background: #0070f3;
+            padding: 0.25em;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.75rem;
+        }
+
+        .following {
+            text-align: end;
+            border: 1px solid #09ad0e;
+            background: #09ad0e;
+            padding: 0.25em;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.75rem;
+        }
+
+        .muted {
+            text-align: end;
+            border: 1px solid #ad2409;
+            background: #ad2409;
+            padding: 0.25em;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.75rem;
+        }
+
+        .blocked {
+            text-align: end;
+            border: 1px solid #ad2409;
+            background: #ad2409;
+            padding: 0.25em;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.75rem;
+        }
     </style>
 </head>
 
 <body class="flex flex-col">
     <h1 class="text-center">Bluesky Follower Scanner</h1>
-    <div class="mb-1 text-center">Analyze accounts that follow you.</div>
+    <div class="mb-1 text-center">Analyze accounts that follow you. Manual <a
+            href="https://bsky.app/profile/badlogic.bsky.social/post/3lbrdi2qbtc22">here</a></div>
     <div class="text-sm text-center mb-2">Find this useful? Consider donating to our <a target="_blank"
             href="https://bsky.app/profile/badlogic.bsky.social/post/3lazjayqwfk2q">🇺🇦 charity</a></div>
     <div class="flex justify-center mb-2">
         <input type="text" id="handle" placeholder="Bluesky handle (e.g. example.bsky.social)" />
         <button id="scanButton">Scan</button>
+    </div>
+    <div id="login" class="flex flex-col justify-center gap-2"
+        style="border: 1px solid #ccc; border-radius: 8px; padding: 1em; margin: 1em auto; margin-bottom: 2em; max-width: 300px;">
+        <div class="text-center text-sm"><span style="color: green">Optional</span>: provide your Bluesky account name
+            and an <a href="https://bsky.app/settings/app-passwords">app
+                password</a> to see which accounts you followed, muted, blocked, and vice versa.</div>
+        <input type="text" id="loginHandle" class="filter-input"
+            placeholder="Bluesky handle (e.g. example.bsky.social)" />
+        <input type="password" id="loginPassword" class="filter-input" placeholder="App password" />
+        <div class="text-center text-xs">It is a very bad idea to enter log-in credentials into a site you do not trust.
+            Bluesky Follower Scanner only uses your credentials to communicate with Bluesky. Your credentials are only
+            stored in your computer's RAM for the duration of your site visit.</div>
     </div>
     <div id="progress" class="progress text-center"></div>
     <div id="error" class="error hidden text-center"></div>

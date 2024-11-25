@@ -1,4 +1,5 @@
 import { AppBskyActorDefs, AtpAgent } from "@atproto/api"
+import { blocksToCarFile } from "@atproto/repo"
 
 interface Account {
 	handle: string
@@ -9,6 +10,30 @@ interface Account {
 	postsCount: number
 	followsCount: number
 	followersCount: number
+	loggedIn?: {
+		following: boolean
+		blocked: boolean
+		muted: boolean
+
+		followedBy: boolean
+		blockedBy: boolean
+		mutedBy: boolean
+	}
+}
+
+function mapViewerState(state?: AppBskyActorDefs.ViewerState): Account["loggedIn"] {
+	if (!state) {
+		return undefined
+	}
+
+	return {
+		following: !!state.following,
+		blocked: !!state.blocking,
+		muted: !!state.muted,
+		followedBy: !!state.followedBy,
+		blockedBy: !!state.blockedBy,
+		mutedBy: !!state.mutedByList,
+	}
 }
 
 type BlueskyScannerResults = {
@@ -19,7 +44,6 @@ type BlueskyScannerResults = {
 }
 
 class BlueskyScanner {
-	private agent: AtpAgent
 	private progressCallback: (message: string) => void
 	private errorCallback: (message: string) => void
 	private resultsCallback: (results: BlueskyScannerResults) => void
@@ -29,14 +53,26 @@ class BlueskyScanner {
 		errorCallback: (message: string) => void,
 		resultsCallback: (results: any) => void,
 	) {
-		this.agent = new AtpAgent({ service: "https://public.api.bsky.app" })
 		this.progressCallback = progressCallback
 		this.errorCallback = errorCallback
 		this.resultsCallback = resultsCallback
 	}
 
-	async scanAccount(handle: string) {
+	async scanAccount(handle: string, loginHandle?: string, loginPassword?: string) {
 		try {
+			let agent: AtpAgent
+			let loggedIn = false
+			if (!loginHandle || !loginPassword) {
+				agent = new AtpAgent({ service: "https://public.api.bsky.app" })
+			} else {
+				agent = new AtpAgent({ service: "https://bsky.social" })
+				const resp = await agent.login({ identifier: loginHandle, password: loginPassword })
+				if (!resp.success) {
+					this.errorCallback("Could not log in. Check your user name and password")
+					return
+				}
+			}
+
 			handle = handle.replaceAll("@", "")
 			const followers: AppBskyActorDefs.ProfileView[] = []
 			let cursor: string | undefined = undefined
@@ -49,7 +85,7 @@ class BlueskyScanner {
 			}
 
 			do {
-				const resp = await this.agent.app.bsky.graph.getFollowers({
+				const resp = await agent.app.bsky.graph.getFollowers({
 					actor: handle,
 					cursor,
 					limit: 100,
@@ -74,7 +110,7 @@ class BlueskyScanner {
 				const dids = chunk.map((f) => f.did)
 
 				try {
-					const profiles = await this.agent.app.bsky.actor.getProfiles({
+					const profiles = await agent.app.bsky.actor.getProfiles({
 						actors: dids,
 					})
 
@@ -101,6 +137,7 @@ class BlueskyScanner {
 							postsCount: profile.postsCount ?? 0,
 							followsCount: profile.followsCount ?? 0,
 							followersCount: profile.followersCount ?? 0,
+							loggedIn: mapViewerState(profile.viewer),
 						})
 					}
 
@@ -150,10 +187,13 @@ const getTimeAgo = (dateString: string): string => {
 
 const renderResults = (results: BlueskyScannerResults) => {
 	const resultsDiv = document.getElementById("results") as HTMLDivElement
-	const { accounts, numNoDescription, numNoPosts, totalFollowers } = results
+	const { accounts, totalFollowers } = results
 	const ITEMS_PER_PAGE = 20
 	let currentPage = 0
 	let filteredResults: Account[] = []
+	const handle = document.querySelector<HTMLInputElement>("#handle")!.value.toLowerCase().trim()
+	const loginHandle = document.querySelector<HTMLInputElement>("#loginHandle")!.value.toLowerCase().trim()
+	const loggedIn = loginHandle.trim().length > 0
 
 	const renderAccount = (account: Account, required: string[], optional: string[]) => /*html*/ `
         <div class="flex flex-col gap-2 mb-2" style="border: 1px solid #ccc; border-radius: 0.5em; padding: 1em;">
@@ -164,12 +204,10 @@ const renderResults = (results: BlueskyScannerResults) => {
 						: `<span class="sus">No Pic</span>`
 				}
 				<div class="flex flex-col">
-                	<a href="https://bsky.app/profile/${account.handle}" target="_blank">${
-		account.displayName ?? account.handle
-	}</a>
+                	<a href="https://bsky.app/profile/${account.handle}">${account.displayName || account.handle}</a>
 					${
 						account.displayName
-							? /*html*/ `<a href="https://bsky.app/profile/${account.handle}" target="_blank" class="text-sm" style="color: #777">${account.handle}</a>`
+							? /*html*/ `<a href="https://bsky.app/profile/${account.handle}" class="text-sm" style="color: #777">${account.handle}</a>`
 							: ""
 					}
 				</div>
@@ -189,6 +227,23 @@ const renderResults = (results: BlueskyScannerResults) => {
                 <span class="${account.followsCount == 0 ? "sus" : ""}">${account.followsCount} Follows</span>
                 <span class="${account.postsCount == 0 ? "sus" : ""}">${account.postsCount} Posts</span>
             </div>
+			${
+				account.loggedIn
+					? /*html*/ `<div class="flex gap-2">
+				${account.loggedIn.following ? `<span class="following">Following</span>` : ""}
+				${account.loggedIn.muted ? `<span class="blocked">Muted</span>` : ""}
+				${account.loggedIn.blocked ? `<span class="blocked">Blocked</span>` : ""}
+
+				${
+					account.loggedIn && loginHandle != handle
+						? `${account.loggedIn.followedBy ? `<span class="following">Follows you</span>` : ""}
+				${account.loggedIn.mutedBy ? `<span class="blocked">Muted you</span>` : ""}
+				${account.loggedIn.blockedBy ? `<span class="blocked">Blocked you</span>` : ""}`
+						: ""
+				}
+			</div>`
+					: ""
+			}
         </div>
     `
 
@@ -272,12 +327,12 @@ const renderResults = (results: BlueskyScannerResults) => {
 	const highlightTokens = (text: string, required: string[], optional: string[]) => {
 		if (!text || !required || !optional) return text
 
-		// Create a regex pattern that matches whole words only
+		// Create a regex pattern that matches partial words
 		const createPattern = (tokens: string[]) => {
 			if (tokens.length === 0) return null
 			// Escape special regex characters and join with |
 			const escaped = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-			return new RegExp(`\\b(${escaped.join("|")})\\b`, "gi")
+			return new RegExp(`(${escaped.join("|")})`, "gi")
 		}
 
 		const requiredPattern = createPattern(required)
@@ -307,8 +362,10 @@ const renderResults = (results: BlueskyScannerResults) => {
 	const BLUESKY_LAUNCH_DATE = "2023-02-17" // Bluesky's public launch date
 
 	resultsDiv.innerHTML = /*html*/ `
-        <h2>${totalFollowers} Followers analyzed</h2>
-		<button id="download" class="mb-2">Download JSON</button>
+        <div class="text-bold flex gap-2 items-center mb-2" style="font-size: 1.25em">
+			<span>${totalFollowers} Followers analyzed</span>
+			<span id="download" class="json">JSON</span>
+		</div>
 
         <div class="filters flex flex-col gap-2" style="border: 1px solid #ccc; border-radius: 8px; padding: 1em;">
             <div style="font-weight: 700; font-size: 1.25em;">Filters</div>
@@ -333,6 +390,22 @@ const renderResults = (results: BlueskyScannerResults) => {
                     <span>Without Bio</span>
                 </label>
             </div>
+
+			${
+				loggedIn
+					? /*html*/ `<!-- Following filter -->
+			<div class="flex gap-4 items-center">
+                <label class="flex gap-2 items-center">
+                    <input type="checkbox" id="with-following" checked>
+                    <span>Followed by you</span>
+                </label>
+                <label class="flex gap-2 items-center">
+                    <input type="checkbox" id="without-following" checked>
+                    <span>Not followed by you</span>
+                </label>
+            </div>`
+					: ""
+			}
 
             <!-- Posts range row -->
             <div class="flex gap-2 items-center">
@@ -384,11 +457,15 @@ const renderResults = (results: BlueskyScannerResults) => {
         </div>
 
         <div class="flex flex-col gap-4" style="margin: 2em 0">
-			<div class="text-bold" id="numFilteredAccounts"></div>
-			<button id="download-filtered">Download filtered accounts JSON</button>
+			<div class="text-bold flex gap-2 items-center">
+				<div class="text-bold" id="numFilteredAccounts"></div>
+				<span id="download-filtered" class="json">JSON</span>
+			</div>
+
             <div id="accountsList"></div>
             <div id="loadMoreWrapper"></div>
         </div>
+
     `
 
 	const filterAndSortAccounts = () => {
@@ -412,11 +489,24 @@ const renderResults = (results: BlueskyScannerResults) => {
 		const sortFeature = (document.getElementById("sort-feature") as HTMLSelectElement).value
 		const sortDirection = (document.getElementById("sort-direction") as HTMLSelectElement).value
 
+		let withFollowing = false
+		let withoutFollowing = false
+		if (loggedIn) {
+			withFollowing = (document.getElementById("with-following") as HTMLInputElement).checked
+			withoutFollowing = (document.getElementById("without-following") as HTMLInputElement).checked
+		}
+
 		// Filter accounts
 		filteredResults = accounts.filter((account) => {
 			// Bio filter logic: account must match at least one selected option
 			const bioMatches = account.description ? withBio : withoutBio
 			if (!bioMatches) return false
+
+			// Followed by you filter: account must match at least one selected option
+			if (account.loggedIn) {
+				const followingMatches = account.loggedIn.following ? withFollowing : withoutFollowing
+				if (!followingMatches) return false
+			}
 
 			// Search text filter
 			if (searchText) {
@@ -486,7 +576,7 @@ const renderResults = (results: BlueskyScannerResults) => {
 		if (accountsList) {
 			accountsList.innerHTML = ""
 			document.querySelector("#numFilteredAccounts")!.textContent =
-				"Found " + filteredResults.length + " of " + results.accounts.length + " accounts"
+				"Matched " + filteredResults.length + " of " + results.accounts.length + " accounts"
 			loadMoreAccounts()
 		}
 	}
@@ -495,6 +585,8 @@ const renderResults = (results: BlueskyScannerResults) => {
 		"search-text",
 		"with-bio",
 		"without-bio",
+		"with-following",
+		"without-following",
 		"min-posts",
 		"max-posts",
 		"min-follows",
@@ -518,6 +610,8 @@ const renderResults = (results: BlueskyScannerResults) => {
 	resetButton.addEventListener("click", () => {
 		;(document.getElementById("with-bio") as HTMLInputElement).checked = true
 		;(document.getElementById("without-bio") as HTMLInputElement).checked = true
+		;(document.getElementById("with-following") as HTMLInputElement).checked = true
+		;(document.getElementById("without-following") as HTMLInputElement).checked = true
 		;(document.getElementById("search-text") as HTMLInputElement).value = ""
 		;(document.getElementById("min-posts") as HTMLInputElement).value = "0"
 		;(document.getElementById("max-posts") as HTMLInputElement).value = "10000000"
@@ -624,7 +718,9 @@ document.addEventListener("DOMContentLoaded", () => {
 		scanButton.disabled = true
 
 		try {
-			await scanner.scanAccount(handle)
+			const loginHandle = document.querySelector<HTMLInputElement>("#loginHandle")!.value
+			const loginPassword = document.querySelector<HTMLInputElement>("#loginPassword")!.value
+			await scanner.scanAccount(handle, loginHandle, loginPassword)
 		} finally {
 			scanButton.disabled = false
 			progressDiv.textContent = "Scan complete"
@@ -632,7 +728,6 @@ document.addEventListener("DOMContentLoaded", () => {
 	})
 
 	if (location.hostname.includes("localhost")) {
-		handleInput.value = "E-hom.bsky.social"
-		scanButton.click()
+		// scanButton.click()
 	}
 })
