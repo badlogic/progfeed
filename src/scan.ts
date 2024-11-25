@@ -351,6 +351,8 @@ const renderResults = (results: BlueskyScannerResults) => {
 				<span class="text-bold">Profile created after:</span>
                 <input type="date" class="filter-input" id="created-after" value="${BLUESKY_LAUNCH_DATE}">
             </div>
+
+			<button id="reset-filters">Reset</button>
         </div>
 
         <!-- Sorting row -->
@@ -494,6 +496,25 @@ const renderResults = (results: BlueskyScannerResults) => {
 		if (element) {
 			element.addEventListener("input", filterAndSortAccounts)
 		}
+	})
+
+	// Reset filters
+	const resetButton = document.querySelector<HTMLButtonElement>("#reset-filters")!
+	resetButton.addEventListener("click", () => {
+		;(document.getElementById("with-bio") as HTMLInputElement).checked = true
+		;(document.getElementById("without-bio") as HTMLInputElement).checked = true
+		;(document.getElementById("search-text") as HTMLInputElement).value = ""
+
+		;(document.getElementById("min-posts") as HTMLInputElement).value = "0"
+		;(document.getElementById("max-posts") as HTMLInputElement).value = "10000000"
+		;(document.getElementById("min-follows") as HTMLInputElement).value = "0"
+		;(document.getElementById("max-follows") as HTMLInputElement).value = "10000000"
+		;(document.getElementById("min-followers") as HTMLInputElement).value = "0"
+		;(document.getElementById("max-followers") as HTMLInputElement).value = "10000000"
+		;(document.getElementById("created-after") as HTMLInputElement).value = BLUESKY_LAUNCH_DATE
+		;(document.getElementById("sort-feature") as HTMLSelectElement).value = "followedAt"
+		;(document.getElementById("sort-direction") as HTMLSelectElement).value = "desc"
+		filterAndSortAccounts()
 	})
 
 	// Initial render
