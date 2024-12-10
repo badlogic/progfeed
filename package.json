@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Various BlueSky feed generators, e.g. for programming related skeets",
   "main": "build/server.js",
-  "type": "module",
   "scripts": {
     "dev": "concurrently -r \"npm run build:server -- --watch\"  \"npm run build:site -- --watch\" \"./docker/control.sh startdev\"",
     "build": "npm run build:server && npm run build:site",
@@ -22,7 +21,10 @@
     "@atproto/xrpc-server": "^0.7.3",
     "@skyware/jetstream": "^0.2.0",
     "@types/express": "^5.0.0",
+    "chalk": "^5.3.0",
+    "chokidar": "^4.0.1",
     "express": "^4.21.1",
+    "glob": "^11.0.0",
     "multiformats": "^13.3.1"
   },
   "devDependencies": {

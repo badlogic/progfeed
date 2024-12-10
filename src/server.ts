@@ -1,5 +1,5 @@
 import express, { Express } from "express";
-import { feeds, publishAllFeeds, serviceDid } from "./feeds";
+import { feeds, host, publishAllFeeds, serviceDid } from "./feeds";
 import { FeedStorage } from "./storage";
 import path from "path";
 import { Worker } from "worker_threads";
@@ -95,7 +95,7 @@ function setupRoutes(app: Express) {
 				{
 					id: "#bsky_fg",
 					type: "BskyFeedGenerator",
-					serviceEndpoint: "https://progfeeds.mariozechner.at",
+					serviceEndpoint: `https://${host}`,
 				},
 			],
 		});
@@ -116,8 +116,11 @@ function setupRoutes(app: Express) {
 		});
 	});
 
-	app.get("/xrpc/app.bsky.feed.getFeedSkeleton", (req, res) => {
+	app.get("/xrpc/app.bsky.feed.getFeedSkeleton", async (req, res) => {
 		try {
+			const authHeader = req.headers.authorization;
+			let userDid = null;
+
 			const feedUri = req.query.feed as string;
 			if (!feedUri) {
 				console.log("Missing feed parameter");

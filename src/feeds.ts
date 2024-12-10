@@ -1,9 +1,10 @@
 import { AtpAgent } from "@atproto/api";
 import { ids } from "@atproto/api/dist/client/lexicons";
 import { FirehosePost } from "./firehose";
-import { FeedStorage } from "./storage";
+import { GeneratorView } from "@atproto/api/dist/client/types/app/bsky/feed/defs";
+import chalk from "chalk";
 
-export const host = "progfeeds.mariozechner.at";
+export const host = process.env.DEV ? "badlogic.ngrok.dev" : "progfeeds.mariozechner.at";
 export const serviceDid = `did:web:${host}`;
 export type Feed = {
 	rkey: string;
@@ -51,6 +52,20 @@ export async function publishAllFeeds() {
 	}
 }
 
+export async function getFeeds(agent: AtpAgent) {
+	let cursor: string | undefined;
+	let feeds: GeneratorView[] = [];
+	do {
+		const resp = await agent.app.bsky.feed.getActorFeeds({ actor: agent.session!.did, cursor });
+		if (!resp.success) {
+			console.error(chalk.red("Could not get feeds"));
+			break;
+		}
+		feeds.push(...resp.data.feeds);
+	} while (cursor);
+	return feeds;
+}
+
 export async function testFeed(feed: Feed) {
 	const agent = new AtpAgent({ service: "https://bsky.social" });
 	await agent.login({ identifier: process.env.PROGFEEDS_ACCOUNT!, password: process.env.PROGFEEDS_PASSWORD! });
@@ -75,8 +90,8 @@ export function isPostRelevant(post: FirehosePost): string[] {
 }
 
 feeds.push({
-	rkey: "githubrepos",
-	name: "GitHub Repos",
+	rkey: "githubrepos" + (process.env.DEV ? "-dev" : ""),
+	name: "GitHub Repos" + (process.env.DEV ? " Dev" : ""),
 	description: "Skeets with URLs to GitHub repos, sorted chronologically.",
 	isPostRelevant: (post) => {
 		return post.text.includes("github.com");
