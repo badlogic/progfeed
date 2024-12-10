@@ -5,6 +5,7 @@ import path from "path";
 import { Worker } from "worker_threads";
 import { fork } from "child_process";
 import * as fs from "fs";
+import { verifyToken } from "./jwt";
 
 const POSTS_PER_PAGE = 5;
 let workerStats = {
@@ -108,9 +109,6 @@ function setupRoutes(app: Express) {
 			feeds: feeds.map((feed) => {
 				return {
 					uri: feed.uri,
-					created_at: new Date().toISOString(),
-					name: feed.name,
-					description: feed.description,
 				};
 			}),
 		});
@@ -118,8 +116,11 @@ function setupRoutes(app: Express) {
 
 	app.get("/xrpc/app.bsky.feed.getFeedSkeleton", async (req, res) => {
 		try {
-			const authHeader = req.headers.authorization;
-			let userDid = null;
+			let authHeader = req.headers.authorization;
+			authHeader = authHeader?.substring(0, authHeader.length);
+
+			// const verified = await verifyToken(authHeader || "", `did:web:${host}`);
+			// console.log("Authenticated user DID:", verified.iss);
 
 			const feedUri = req.query.feed as string;
 			if (!feedUri) {
